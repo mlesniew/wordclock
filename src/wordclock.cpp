@@ -50,19 +50,6 @@ LedControl lc(
     1   // matrix count
 );
 
-void setup() {
-    Serial.begin(9600);
-
-    // enable display
-    lc.shutdown(0, false);
-    // set brightness
-    lc.setIntensity(0, 2);
-    // clear the display
-    lc.clearDisplay(0);
-
-    Serial.println("Setup complete");
-}
-
 void clear(pix_t * buf = screen)
 {
     int y = 8;
@@ -128,13 +115,55 @@ void copy_to_display(const pix_t * src = screen)
         lc.setRow(0, 7 - y, reverse_bits(src[y]));
 }
 
+void transition(const pix_t * dst, const pix_t * src = screen)
+{
+    constexpr auto speed = 20;
+
+    // vanish
+    for (int p = 0; p < 8; ++p)
+    {
+        for (int y = 0; y < 8; ++y)
+            screen[y] <<= 1;
+        copy_to_display();
+        delay(speed);
+    }
+
+    // shift in the new bmp
+    for (int p = 0; p < 8; ++p)
+    {
+        for (int y = 0; y < 8; ++y)
+        {
+            screen[y] <<= 1;
+            screen[y] |= (dst[y] >> (7 - p)) & 1;
+        }
+        copy_to_display();
+        delay(speed);
+    }
+}
+
+void setup() {
+    Serial.begin(9600);
+
+    // enable display
+    lc.shutdown(0, false);
+    // set brightness
+    lc.setIntensity(0, 2);
+    // clear the display
+    lc.clearDisplay(0);
+
+    clear();
+
+    Serial.println("Setup complete");
+}
+
 void loop() {
     for (int h = 0; h < 24; ++h)
         for (int m = 0; m < 60; m += 15)
         {
-            clear();
-            compose_time(h, m);
-            copy_to_display();
+            pix_t tmp[8];
+            clear(tmp);
+            compose_time(h, m, tmp);
+            transition(tmp);
             delay(3000);
         }
 }
