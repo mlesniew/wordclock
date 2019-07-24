@@ -1,5 +1,7 @@
 #include <LedControl.h>
 #include <WiFiManager.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 #define HOSTNAME "wordclock"
 
@@ -53,6 +55,9 @@ LedControl lc(
     1   // matrix count
 );
 
+WiFiUDP ntpUDP;
+NTPClient ntp_client(ntpUDP);
+
 void clear(pix_t * buf = screen)
 {
     int y = 8;
@@ -65,6 +70,17 @@ void add_bmp(const pix_t * src, pix_t * dst = screen)
     int y = 8;
     while (y--)
         *(dst++) |= *(src++);
+}
+
+int bmp_equal(const pix_t * a, const pix_t * b = screen)
+{
+    int y = 8;
+    while (y--)
+    {
+        if (*(a++) != *(b++))
+            return false;
+    }
+    return true;
 }
 
 void compose_time(char h, char m, pix_t * buf = screen)
@@ -183,18 +199,22 @@ void setup() {
 
     setup_wifi();
 
+    ntp_client.begin();
+    ntp_client.setTimeOffset(2 * 60 * 60);
+
     Serial.println("Setup complete");
 }
 
 void loop() {
-    for (int h = 0; h < 24; ++h)
-        for (int m = 0; m < 60; m += 15)
-        {
-            pix_t tmp[8];
-            clear(tmp);
-            compose_time(h, m, tmp);
-            transition(tmp);
-            delay(3000);
-        }
+    bool got_time = ntp_client.update();
+
+    if (got_time)
+    {
+        pix_t img[8];
+        clear(img);
+        compose_time(ntp_client.getHours(), ntp_client.getMinutes(), img);
+        if (!bmp_equal(img, screen))
+            transition(img);
+    }
 }
 
