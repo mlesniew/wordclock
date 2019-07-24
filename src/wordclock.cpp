@@ -1,4 +1,7 @@
 #include <LedControl.h>
+#include <WiFiManager.h>
+
+#define HOSTNAME "wordclock"
 
 #define BMP_ZERO       (bitmap + 0)
 #define BMP_ONE        (bitmap + 8)
@@ -141,6 +144,31 @@ void transition(const pix_t * dst, const pix_t * src = screen)
     }
 }
 
+void reboot()
+{
+    Serial.println("Reboot...");
+    while (true)
+    {
+        ESP.restart();
+        delay(10 * 1000);
+    }
+}
+
+
+void setup_wifi()
+{
+    WiFi.hostname(HOSTNAME);
+    WiFiManager wifiManager;
+
+    wifiManager.setConfigPortalTimeout(60);
+    if (!wifiManager.autoConnect(HOSTNAME, "password"))
+    {
+        Serial.println("AutoConnect failed, retrying in 15 minutes");
+        delay(15 * 60 * 1000);
+        reboot();
+    }
+}
+
 void setup() {
     Serial.begin(9600);
 
@@ -152,6 +180,8 @@ void setup() {
     lc.clearDisplay(0);
 
     clear();
+
+    setup_wifi();
 
     Serial.println("Setup complete");
 }
