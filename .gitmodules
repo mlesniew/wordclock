@@ -1,0 +1,3 @@
+[submodule "lib/NTPClient"]
+	path = lib/NTPClient
+	url = https://github.com/arduino-libraries/NTPClient.git

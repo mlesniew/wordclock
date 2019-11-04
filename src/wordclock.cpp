@@ -1,3 +1,6 @@
+#include <EEPROM.h>
+#include <ESP8266WebServer.h>
+#include <FS.h>
 #include <LedControl.h>
 #include <NTPClient.h>
 #include <Ticker.h>
@@ -49,6 +52,13 @@ const unsigned char bitmap[] = {
 typedef unsigned char pix_t;
 pix_t screen[8];
 
+struct Settings {
+    char ntp_server[100];
+    int utc_offset;
+} __attribute((packed));
+
+Settings settings;
+
 LedControl lc(
     D8, // din
     D7, // clk
@@ -59,6 +69,7 @@ LedControl lc(
 WiFiUDP ntpUDP;
 NTPClient ntp_client(ntpUDP);
 Ticker ticker;
+ESP8266WebServer server;
 
 void clear(pix_t * buf = screen)
 {
@@ -222,12 +233,59 @@ void setup() {
 
     ticker.attach(0.05, static_effect);
 
+    EEPROM.begin(sizeof(Settings));
+    EEPROM.get(0, settings);
+    settings.ntp_server[99] = '\0';  // just in case
+    Serial.println("Got settings: ");
+    Serial.println("  server: " + String(settings.ntp_server));
+    Serial.println("  offset: " + String(settings.utc_offset));
+
     setup_wifi();
 
+    SPIFFS.begin();
+
+    server.serveStatic("/", SPIFFS, "/index.html");
+
+    server.on("/version", []{
+            server.send(200, "text/plain", __DATE__ " " __TIME__);
+            });
+
+    server.on("/uptime", []{
+            server.send(200, "text/plain", String(millis() / 1000));
+            });
+
+    server.on("/settings/save", []{
+            auto ntp_server = server.arg("ntpServer");
+            auto offset = server.arg("timeOffset");
+
+            ntp_server.trim();
+            offset.trim();
+
+            Serial.println("Server: " + ntp_server);
+            Serial.println("Offset: " + offset);
+
+            ntp_server.toCharArray(settings.ntp_server, 100);
+            settings.utc_offset = offset.toInt();
+
+            EEPROM.put(0, settings);
+            EEPROM.commit();
+
+            ntp_client.setPoolServerName(settings.ntp_server);
+            ntp_client.setTimeOffset(settings.utc_offset * 60);
+
+            server.send(200, "text/plain", "");
+            });
+
     ntp_client.begin();
-    ntp_client.setTimeOffset(1 * 60 * 60);
+    if (strlen(settings.ntp_server) > 0) {
+        ntp_client.setPoolServerName(settings.ntp_server);
+    } else {
+        ntp_client.setPoolServerName("pool.ntp.org");
+    }
+    ntp_client.setTimeOffset(settings.utc_offset * 60);
 
     Serial.println("Setup complete");
+    server.begin();
 }
 
 void loop() {
@@ -249,5 +307,6 @@ void loop() {
             transition(img);
         }
     }
+    server.handleClient();
 }
 
