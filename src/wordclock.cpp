@@ -1,6 +1,7 @@
 #include <LedControl.h>
-#include <WiFiManager.h>
 #include <NTPClient.h>
+#include <Ticker.h>
+#include <WiFiManager.h>
 #include <WiFiUdp.h>
 
 #define HOSTNAME "wordclock"
@@ -49,14 +50,15 @@ typedef unsigned char pix_t;
 pix_t screen[8];
 
 LedControl lc(
-    D7, // din
-    D5, // clk
-    D8, // load
+    D8, // din
+    D7, // clk
+    D6, // load
     1   // matrix count
 );
 
 WiFiUDP ntpUDP;
 NTPClient ntp_client(ntpUDP);
+Ticker ticker;
 
 void clear(pix_t * buf = screen)
 {
@@ -170,6 +172,29 @@ void reboot()
     }
 }
 
+void static_effect()
+{
+    static unsigned int p = 0;
+
+    for (unsigned int y = 0; y < 8; ++y)
+    {
+        auto val = random(0xffff);
+        val = (val & 0xff) & (val >> 8);
+        screen[y] = val;
+    }
+
+    if ((p >> 1) < 8)
+        screen[p >> 1] |= random(256);
+
+    ++p;
+    p &= 31;
+
+    if ((p >> 1) < 8)
+        screen[p >> 1] &= random(256);
+
+    copy_to_display();
+}
+
 
 void setup_wifi()
 {
@@ -191,30 +216,38 @@ void setup() {
     // enable display
     lc.shutdown(0, false);
     // set brightness
-    lc.setIntensity(0, 2);
+    lc.setIntensity(0, 15);
     // clear the display
     lc.clearDisplay(0);
 
-    clear();
+    ticker.attach(0.05, static_effect);
 
     setup_wifi();
 
     ntp_client.begin();
-    ntp_client.setTimeOffset(2 * 60 * 60);
+    ntp_client.setTimeOffset(1 * 60 * 60);
 
     Serial.println("Setup complete");
 }
 
 void loop() {
     bool got_time = ntp_client.update();
+    static bool ever_got_time = false;
 
     if (got_time)
     {
+        if (!ever_got_time)
+        {
+            ticker.detach();
+            ever_got_time = true;
+        }
         pix_t img[8];
         clear(img);
         compose_time(ntp_client.getHours(), ntp_client.getMinutes(), img);
-        if (!bmp_equal(img, screen))
+        if (!bmp_equal(img, screen)) {
+            Serial.println("Updating display...");
             transition(img);
+        }
     }
 }
 
