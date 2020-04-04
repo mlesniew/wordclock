@@ -270,6 +270,17 @@ void print_settings() {
 void setup() {
     Serial.begin(9600);
 
+    printf("\n\n"
+       "888       888                      888          888                   888\n"
+       "888   o   888                      888          888                   888\n"
+       "888  d8b  888                      888          888                   888\n"
+       "888 d888b 888  .d88b.  888d888 .d88888  .d8888b 888  .d88b.   .d8888b 888  888\n"
+       "888d88888b888 d88''88b 888P'  d88' 888 d88P'    888 d88''88b d88P'    888 .88P\n"
+       "88888P Y88888 888  888 888    888  888 888      888 888  888 888      888888K\n"
+       "8888P   Y8888 Y88..88P 888    Y88b 888 Y88b.    888 Y88..88P Y88b.    888 '88b\n"
+       "888P     Y888  'Y88P'  888     'Y88888  'Y8888P 888  'Y88P'   'Y8888P 888  888\n"
+       "\nBuilt on " __DATE__ " at " __TIME__ ".\n\n");
+
     // enable display
     lc.shutdown(0, false);
     // set brightness
