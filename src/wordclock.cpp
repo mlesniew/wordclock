@@ -1,4 +1,3 @@
-#include <EEPROM.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
 #include <LedControl.h>
@@ -254,6 +253,15 @@ void setup() {
 
     server.on("/uptime", []{
             server.send(200, "text/plain", String(millis() / 1000));
+            });
+
+    server.on("/settings", []{
+            char buf[250];
+            snprintf(buf, sizeof(buf),
+                     "{\"ntpServer\":\"%s\", \"timeOffset\": %i}",
+                     settings::settings.data.ntp_server,
+                     settings::settings.data.utc_offset);
+            server.send(200, "application/json", buf);
             });
 
     server.on("/settings/save", []{
