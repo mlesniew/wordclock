@@ -175,7 +175,7 @@ void transition(const pix_t * dst, const pix_t * src = screen)
 
 void reboot()
 {
-    Serial.println("Reboot...");
+    printf("Reboot...\n");
     while (true)
     {
         ESP.restart();
@@ -215,7 +215,7 @@ void setup_wifi()
     wifiManager.setConfigPortalTimeout(60);
     if (!wifiManager.autoConnect(HOSTNAME, "password"))
     {
-        Serial.println("AutoConnect failed, retrying in 15 minutes");
+        printf("AutoConnect failed, retrying in 15 minutes...\n");
         delay(15 * 60 * 1000);
         reboot();
     }
@@ -236,9 +236,9 @@ void setup() {
     EEPROM.begin(sizeof(Settings));
     EEPROM.get(0, settings);
     settings.ntp_server[99] = '\0';  // just in case
-    Serial.println("Got settings: ");
-    Serial.println("  server: " + String(settings.ntp_server));
-    Serial.println("  offset: " + String(settings.utc_offset));
+    printf("Loaded settings:\n");
+    printf("  server: %s\n", settings.ntp_server);
+    printf("  offset: %i:%02i\n", settings.utc_offset / 60, settings.utc_offset % 60);
 
     setup_wifi();
 
@@ -261,11 +261,12 @@ void setup() {
             ntp_server.trim();
             offset.trim();
 
-            Serial.println("Server: " + ntp_server);
-            Serial.println("Offset: " + offset);
-
             ntp_server.toCharArray(settings.ntp_server, 100);
             settings.utc_offset = offset.toInt();
+
+            printf("New settings:\n");
+            printf("  server: %s\n", settings.ntp_server);
+            printf("  offset: %i:%02i\n", settings.utc_offset / 60, settings.utc_offset % 60);
 
             EEPROM.put(0, settings);
             EEPROM.commit();
