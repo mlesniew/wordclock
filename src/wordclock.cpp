@@ -280,7 +280,8 @@ void setup() {
             ntp_client.setPoolServerName(settings::settings.data.ntp_server);
             ntp_client.setTimeOffset(settings::settings.data.utc_offset * 60);
 
-            server.send(200, "text/plain", "");
+            server.sendHeader("Location", "/", true);
+            server.send(302, "text/plain", "Settings saved.");
             });
 
     ntp_client.begin();
