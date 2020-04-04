@@ -1,4 +1,3 @@
-#include <CRC.h>
 #include <EEPROM.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
@@ -8,9 +7,9 @@
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
 
+#include "settings.h"
+
 #define HOSTNAME "wordclock"
-#define DEFAULT_NTP_SERVER "pool.ntp.org"
-#define DEFAULT_UTC_OFFSET 60
 
 #define BMP_ZERO       (bitmap + 0)
 #define BMP_ONE        (bitmap + 8)
@@ -55,15 +54,6 @@ const unsigned char bitmap[] = {
 typedef unsigned char pix_t;
 pix_t screen[8];
 
-struct Settings {
-    struct {
-        char ntp_server[100];
-        int utc_offset;
-    } data;
-    uint16_t checksum;
-} __attribute((packed));
-
-Settings settings;
 
 LedControl lc(
     D8, // din
@@ -227,46 +217,6 @@ void setup_wifi()
     }
 }
 
-void sanitize_settings() {
-    if (settings.data.utc_offset > 60 * 14)
-        settings.data.utc_offset = 60 * 14;
-
-    if (settings.data.utc_offset < -60 * 12)
-        settings.data.utc_offset = -60 * 12;
-
-    if (strlen(settings.data.ntp_server) == 0)
-        strcpy(settings.data.ntp_server, DEFAULT_NTP_SERVER);
-}
-
-void load_settings() {
-    EEPROM.begin(sizeof(Settings));
-    EEPROM.get(0, settings);
-
-    const auto expected_checksum = CRC::crc16(&settings.data, sizeof(settings.data));
-    if (settings.checksum != expected_checksum) {
-        printf("Invalid CRC of settings in flash, using defaults.\n");
-        settings.data.ntp_server[0] = '\0';
-        settings.data.utc_offset = DEFAULT_UTC_OFFSET;
-    } else {
-        printf("Loaded settings from flash, CRC correct.");
-        settings.data.ntp_server[99] = '\0';  // just in case
-    }
-
-    sanitize_settings();
-}
-
-void save_settings() {
-    settings.checksum = CRC::crc16(&settings.data, sizeof(settings.data));
-    EEPROM.put(0, settings);
-    EEPROM.commit();
-}
-
-void print_settings() {
-    printf("Settings:\n");
-    printf("  server: %s\n", settings.data.ntp_server);
-    printf("  offset: %i:%02i\n", settings.data.utc_offset / 60, settings.data.utc_offset % 60);
-}
-
 void setup() {
     Serial.begin(9600);
 
@@ -290,8 +240,7 @@ void setup() {
 
     ticker.attach(0.05, static_effect);
 
-    load_settings();
-    print_settings();
+    settings::load();
 
     setup_wifi();
 
@@ -314,21 +263,21 @@ void setup() {
             ntp_server.trim();
             offset.trim();
 
-            ntp_server.toCharArray(settings.data.ntp_server, 100);
-            settings.data.utc_offset = offset.toInt();
-            sanitize_settings();
-            print_settings();
-            save_settings();
+            ntp_server.toCharArray(settings::settings.data.ntp_server, 100);
+            settings::settings.data.utc_offset = offset.toInt();
+            settings::sanitize();
+            settings::print();
+            settings::save();
 
-            ntp_client.setPoolServerName(settings.data.ntp_server);
-            ntp_client.setTimeOffset(settings.data.utc_offset * 60);
+            ntp_client.setPoolServerName(settings::settings.data.ntp_server);
+            ntp_client.setTimeOffset(settings::settings.data.utc_offset * 60);
 
             server.send(200, "text/plain", "");
             });
 
     ntp_client.begin();
-    ntp_client.setPoolServerName(settings.data.ntp_server);
-    ntp_client.setTimeOffset(settings.data.utc_offset * 60);
+    ntp_client.setPoolServerName(settings::settings.data.ntp_server);
+    ntp_client.setTimeOffset(settings::settings.data.utc_offset * 60);
 
     Serial.println("Setup complete");
     server.begin();
