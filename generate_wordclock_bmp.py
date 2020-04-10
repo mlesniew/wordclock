@@ -37,10 +37,10 @@ WORDS = [w.upper() for w in WORDS]
 
 for idx, word in enumerate(WORDS):
     name = word.replace('-', '').upper()
-    print(f'#define BMP_{name:10s} (bitmap + {idx*8})')
+    print(f'#define BMP_{name:10s} (bitmap[{idx}])')
 
 print()
-print('const unsigned char bitmap[] = {')
+print('const unsigned char bitmap[][8] = {')
 for word_idx, word in enumerate(WORDS):
     name = word.replace('-', '').upper()
 
@@ -61,6 +61,6 @@ for word_idx, word in enumerate(WORDS):
         y = idx // 9
         tab[y][x] = 1
 
-    t = ' '.join('%3i,' % sum(e << (7 - i) for i, e in enumerate(row)) for row in tab)
-    print(f'    {t}        //  {word_idx * 8:3}  -- {name}')
+    t = '{ ' + ', '.join('%3i' % sum(e << (i) for i, e in enumerate(row)) for row in reversed(tab)) + ' }'
+    print(f'    {t},        //  {word_idx}  -- {name}')
 print('};')
