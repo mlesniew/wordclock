@@ -1,16 +1,26 @@
+#include <Arduino.h>
 #include <LedControl.h>
+#include <ThreeWire.h>
+#include <RtcDS1302.h>
+#include <OneButton.h>
 
 #include "matrix.h"
 
 typedef unsigned char pix_t;
 pix_t screen[8];
 
-LedControl lc(
-    2, // din
-    4, // clk
-    3, // load
-    1   // matrix count
-);
+LedControl lc(2, 4, 3, 1);  /* DIN, CLK, LOAD, Matrix count */
+ThreeWire tw(5, 6, 7);  /* IO, SCLK, CE */
+RtcDS1302<ThreeWire> rtc(tw);
+OneButton btn = OneButton(10, true, true);  /* pin, active low, enable pull-up */
+
+enum {
+    NOT_SET,
+    ADJUSTING,
+    RUNNING,
+} state;
+
+unsigned char hour, minute;
 
 void clear(pix_t * buf = screen)
 {
@@ -74,7 +84,7 @@ void compose_time(char h, char m, pix_t * buf = screen)
     add_bmp(pasto, buf);
 }
 
-void copy_to_display(const pix_t * src = screen)
+void blit(const pix_t * src = screen)
 {
     for (int y = 0; y < 8; ++y)
         lc.setRow(0, y, src[y]);
@@ -89,7 +99,7 @@ void transition(const pix_t * dst, const pix_t * src = screen)
     {
         for (int y = 0; y < 8; ++y)
             screen[y] <<= 1;
-        copy_to_display();
+        blit();
         delay(speed);
     }
 
@@ -101,7 +111,7 @@ void transition(const pix_t * dst, const pix_t * src = screen)
             screen[y] <<= 1;
             screen[y] |= (dst[y] >> (7 - p)) & 1;
         }
-        copy_to_display();
+        blit();
         delay(speed);
     }
 }
@@ -126,7 +136,32 @@ void static_effect()
     if ((p >> 1) < 8)
         screen[p >> 1] &= random(256);
 
-    copy_to_display();
+    blit();
+}
+
+void print(const RtcDateTime& dt) {
+    char datestring[20];
+
+#if 0
+    snprintf_P(datestring,
+            20,
+            PSTR("%02u:%02u:%02u"),
+            dt.Hour(),
+            dt.Minute(),
+            dt.Second());
+#else
+    snprintf_P(datestring, 
+            20,
+            PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+            dt.Month(),
+            dt.Day(),
+            dt.Year(),
+            dt.Hour(),
+            dt.Minute(),
+            dt.Second() );
+#endif
+
+    Serial.print(datestring);
 }
 
 void setup() {
@@ -148,20 +183,106 @@ void setup() {
     lc.setIntensity(0, 15);
     lc.clearDisplay(0);
 
+    // setup rtc
+    rtc.Begin();
+
+    if (rtc.GetIsWriteProtected()) {
+        rtc.SetIsWriteProtected(false);
+    }
+
+    if (!rtc.IsDateTimeValid()) {
+        // set date to 2020-01-01T00:00:00
+        rtc.SetDateTime(0);
+    }
+
+    if (!rtc.GetIsRunning()) {
+        rtc.SetIsRunning(true);
+    }
+
+    const auto now = rtc.GetDateTime();
+
+    state = now.Year() >= 2020 ? RUNNING : NOT_SET;
+
+    Serial.print(F("RTC time: "));
+    print(now);
+    Serial.println();
+
+    btn.attachClick([] {
+            if (state == ADJUSTING) {
+                minute += 15;
+                if (minute >= 60) {
+                    minute = 0;
+                    hour++;
+                }
+                if (hour >= 24) {
+                    hour = 0;
+                }
+            }
+        });
+
+    btn.attachLongPressStart([] {
+        switch (state) {
+            case ADJUSTING:
+                {
+                    rtc.SetDateTime(RtcDateTime(2020, 1, 1, hour, minute, 0));
+                    state = RUNNING;
+                    break;
+                }
+            case NOT_SET:
+                {
+                    hour = 12;
+                    minute = 0;
+                    state = ADJUSTING;
+                    break;
+                }
+            case RUNNING:
+                {
+                    const auto now = rtc.GetDateTime();
+                    hour = now.Hour();
+                    minute = (now.Minute() / 15 * 15);
+                    state = ADJUSTING;
+                    break;
+                }
+        }
+    });
+
     Serial.println("Setup complete");
 }
 
 void loop() {
-#if 0
-    static_effect();
-#else
-    pix_t img[8];
-    clear(img);
-    compose_time(12, 0, img);
-    if (!bmp_equal(img, screen)) {
-        Serial.println("Updating display...");
-        transition(img);
+    btn.tick();
+
+    switch (state) {
+        case RUNNING:
+        {
+            pix_t img[8];
+            clear(img);
+            const auto now = rtc.GetDateTime();
+            compose_time(now.Hour(), now.Minute(), img);
+            if (!bmp_equal(img, screen)) {
+                Serial.println("Updating display...");
+                transition(img);
+            }
+            delay(1000 / 3);
+        }
+        break;
+
+        case NOT_SET:
+        {
+            static_effect();
+            delay(1000 / 25);
+        }
+        break;
+
+        case ADJUSTING:
+        {
+            if ((millis() >> 9) & 1) {
+                compose_time(hour, minute);
+            } else {
+                clear();
+            }
+            blit();
+        }
+        break;
     }
-#endif
-    delay(1000 / 25);
 }
