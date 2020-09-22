@@ -1,30 +1,16 @@
-#include <ESP8266WebServer.h>
-#include <FS.h>
 #include <LedControl.h>
-#include <NTPClient.h>
-#include <Ticker.h>
-#include <WiFiManager.h>
-#include <WiFiUdp.h>
 
-#include "settings.h"
 #include "matrix.h"
-
-#define HOSTNAME "wordclock"
 
 typedef unsigned char pix_t;
 pix_t screen[8];
 
 LedControl lc(
-    D8, // din
-    D7, // clk
-    D6, // load
+    2, // din
+    4, // clk
+    3, // load
     1   // matrix count
 );
-
-WiFiUDP ntpUDP;
-NTPClient ntp_client(ntpUDP);
-Ticker ticker;
-ESP8266WebServer server;
 
 void clear(pix_t * buf = screen)
 {
@@ -120,16 +106,6 @@ void transition(const pix_t * dst, const pix_t * src = screen)
     }
 }
 
-void reboot()
-{
-    printf("Reboot...\n");
-    while (true)
-    {
-        ESP.restart();
-        delay(10 * 1000);
-    }
-}
-
 void static_effect()
 {
     static unsigned int p = 0;
@@ -153,21 +129,6 @@ void static_effect()
     copy_to_display();
 }
 
-
-void setup_wifi()
-{
-    WiFi.hostname(HOSTNAME);
-    WiFiManager wifiManager;
-
-    wifiManager.setConfigPortalTimeout(60);
-    if (!wifiManager.autoConnect(HOSTNAME, "password"))
-    {
-        printf("AutoConnect failed, retrying in 15 minutes...\n");
-        delay(15 * 60 * 1000);
-        reboot();
-    }
-}
-
 void setup() {
     Serial.begin(9600);
 
@@ -184,84 +145,23 @@ void setup() {
 
     // enable display
     lc.shutdown(0, false);
-    // set brightness
     lc.setIntensity(0, 15);
-    // clear the display
     lc.clearDisplay(0);
 
-    ticker.attach(0.05, static_effect);
-
-    settings::load();
-
-    setup_wifi();
-
-    SPIFFS.begin();
-
-    server.serveStatic("/", SPIFFS, "/index.html");
-
-    server.on("/version", []{
-            server.send(200, "text/plain", __DATE__ " " __TIME__);
-            });
-
-    server.on("/uptime", []{
-            server.send(200, "text/plain", String(millis() / 1000));
-            });
-
-    server.on("/settings", []{
-            char buf[250];
-            snprintf(buf, sizeof(buf),
-                     "{\"ntpServer\":\"%s\", \"timeOffset\": %i}",
-                     settings::settings.data.ntp_server,
-                     settings::settings.data.utc_offset);
-            server.send(200, "application/json", buf);
-            });
-
-    server.on("/settings/save", []{
-            auto ntp_server = server.arg("ntpServer");
-            auto offset = server.arg("timeOffset");
-
-            ntp_server.trim();
-            offset.trim();
-
-            ntp_server.toCharArray(settings::settings.data.ntp_server, 100);
-            settings::settings.data.utc_offset = offset.toInt();
-            settings::sanitize();
-            settings::print();
-            settings::save();
-
-            ntp_client.setPoolServerName(settings::settings.data.ntp_server);
-            ntp_client.setTimeOffset(settings::settings.data.utc_offset * 60);
-
-            server.sendHeader("Location", "/", true);
-            server.send(302, "text/plain", "Settings saved.");
-            });
-
-    ntp_client.begin();
-    ntp_client.setPoolServerName(settings::settings.data.ntp_server);
-    ntp_client.setTimeOffset(settings::settings.data.utc_offset * 60);
-
     Serial.println("Setup complete");
-    server.begin();
 }
 
 void loop() {
-    bool got_time = ntp_client.update();
-    static bool ever_got_time = false;
-
-    if (got_time)
-    {
-        if (!ever_got_time)
-        {
-            ticker.detach();
-            ever_got_time = true;
-        }
-        pix_t img[8];
-        clear(img);
-        compose_time(ntp_client.getHours(), ntp_client.getMinutes(), img);
-        if (!bmp_equal(img, screen)) {
-            Serial.println("Updating display...");
-            transition(img);
-        }
+#if 0
+    static_effect();
+#else
+    pix_t img[8];
+    clear(img);
+    compose_time(12, 0, img);
+    if (!bmp_equal(img, screen)) {
+        Serial.println("Updating display...");
+        transition(img);
     }
-    server.handleClient();
+#endif
+    delay(1000 / 25);
 }
