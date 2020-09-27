@@ -14,13 +14,8 @@ ThreeWire tw(5, 6, 7);  /* IO, SCLK, CE */
 RtcDS1302<ThreeWire> rtc(tw);
 OneButton btn = OneButton(10, true, true);  /* pin, active low, enable pull-up */
 
-enum {
-    NOT_SET,
-    ADJUSTING,
-    RUNNING,
-} state;
-
 unsigned char hour, minute;
+bool adjusting = false;
 
 void clear(pix_t * buf = screen)
 {
@@ -201,14 +196,14 @@ void setup() {
 
     const auto now = rtc.GetDateTime();
 
-    state = now.Year() >= 2020 ? RUNNING : NOT_SET;
+    adjusting = now.Year() < 2020;
 
     Serial.print(F("RTC time: "));
     print(now);
     Serial.println();
 
     btn.attachClick([] {
-            if (state == ADJUSTING) {
+            if (adjusting) {
                 minute += 15;
                 if (minute >= 60) {
                     minute = 0;
@@ -221,68 +216,38 @@ void setup() {
         });
 
     btn.attachLongPressStart([] {
-        switch (state) {
-            case ADJUSTING:
-                {
-                    rtc.SetDateTime(RtcDateTime(2020, 1, 1, hour, minute, 0));
-                    state = RUNNING;
-                    break;
-                }
-            case NOT_SET:
-                {
-                    hour = 12;
-                    minute = 0;
-                    state = ADJUSTING;
-                    break;
-                }
-            case RUNNING:
-                {
-                    const auto now = rtc.GetDateTime();
-                    hour = now.Hour();
-                    minute = (now.Minute() / 15 * 15);
-                    state = ADJUSTING;
-                    break;
-                }
+        if (adjusting) {
+            rtc.SetDateTime(RtcDateTime(2020, 1, 1, hour, minute, 0));
+            adjusting = false;
+        } else {
+            const auto now = rtc.GetDateTime();
+            hour = now.Hour();
+            minute = (now.Minute() / 15 * 15);
+            adjusting = true;
         }
     });
 
-    Serial.println("Setup complete");
+    Serial.println(F("Setup complete"));
 }
 
 void loop() {
     btn.tick();
 
-    switch (state) {
-        case RUNNING:
-        {
-            pix_t img[8];
-            clear(img);
-            const auto now = rtc.GetDateTime();
-            compose_time(now.Hour(), now.Minute(), img);
-            if (!bmp_equal(img, screen)) {
-                Serial.println("Updating display...");
-                transition(img);
-            }
-            delay(1000 / 3);
+    if (adjusting) {
+        clear();
+        if ((millis() >> 9) & 1) {
+            compose_time(hour, minute);
         }
-        break;
-
-        case NOT_SET:
-        {
-            static_effect();
-            delay(1000 / 25);
+        blit();
+    } else {
+        pix_t img[8];
+        clear(img);
+        const auto now = rtc.GetDateTime();
+        compose_time(now.Hour(), now.Minute(), img);
+        if (!bmp_equal(img, screen)) {
+            Serial.println(F("Updating display..."));
+            transition(img);
         }
-        break;
-
-        case ADJUSTING:
-        {
-            if ((millis() >> 9) & 1) {
-                compose_time(hour, minute);
-            } else {
-                clear();
-            }
-            blit();
-        }
-        break;
+        delay(1000 / 3);
     }
 }
