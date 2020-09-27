@@ -4,46 +4,19 @@
 #include <RtcDS1302.h>
 #include <OneButton.h>
 
+#include "gfx.h"
 #include "matrix.h"
-
-typedef unsigned char pix_t;
-pix_t screen[8];
+#include "transition.h"
 
 LedControl lc(2, 4, 3, 1);  /* DIN, CLK, LOAD, Matrix count */
-ThreeWire tw(5, 6, 7);  /* IO, SCLK, CE */
+ThreeWire tw(5, 6, 7);      /* IO, SCLK, CE */
 RtcDS1302<ThreeWire> rtc(tw);
 OneButton btn = OneButton(10, true, true);  /* pin, active low, enable pull-up */
 
 unsigned char hour, minute;
 bool adjusting = false;
 
-void clear(pix_t * buf = screen)
-{
-    int y = 8;
-    while (y--)
-        *(buf++) = 0;
-}
-
-void add_bmp(const pix_t * src, pix_t * dst = screen)
-{
-    int y = 8;
-    while (y--)
-        *(dst++) |= *(src++);
-}
-
-int bmp_equal(const pix_t * a, const pix_t * b = screen)
-{
-    int y = 8;
-    while (y--)
-    {
-        if (*(a++) != *(b++))
-            return false;
-    }
-    return true;
-}
-
-void compose_time(char h, char m, pix_t * buf = screen)
-{
+void compose_time(char h, char m, pix_t * buf = screen) {
     const pix_t * pasto = nullptr;
 
     if (m < 30)
@@ -77,61 +50,6 @@ void compose_time(char h, char m, pix_t * buf = screen)
     }
 
     add_bmp(pasto, buf);
-}
-
-void blit(const pix_t * src = screen)
-{
-    for (int y = 0; y < 8; ++y)
-        lc.setRow(0, y, src[y]);
-}
-
-void transition(const pix_t * dst, const pix_t * src = screen)
-{
-    constexpr auto speed = 20;
-
-    // vanish
-    for (int p = 0; p < 8; ++p)
-    {
-        for (int y = 0; y < 8; ++y)
-            screen[y] <<= 1;
-        blit();
-        delay(speed);
-    }
-
-    // shift in the new bmp
-    for (int p = 0; p < 8; ++p)
-    {
-        for (int y = 0; y < 8; ++y)
-        {
-            screen[y] <<= 1;
-            screen[y] |= (dst[y] >> (7 - p)) & 1;
-        }
-        blit();
-        delay(speed);
-    }
-}
-
-void static_effect()
-{
-    static unsigned int p = 0;
-
-    for (unsigned int y = 0; y < 8; ++y)
-    {
-        auto val = random(0xffff);
-        val = (val & 0xff) & (val >> 8);
-        screen[y] = val;
-    }
-
-    if ((p >> 1) < 8)
-        screen[p >> 1] |= random(256);
-
-    ++p;
-    p &= 31;
-
-    if ((p >> 1) < 8)
-        screen[p >> 1] &= random(256);
-
-    blit();
 }
 
 void print(const RtcDateTime& dt) {
@@ -212,6 +130,8 @@ void setup() {
                 if (hour >= 24) {
                     hour = 0;
                 }
+            } else {
+                transition(screen);
             }
         });
 
@@ -248,6 +168,6 @@ void loop() {
             Serial.println(F("Updating display..."));
             transition(img);
         }
-        delay(1000 / 3);
+        delay(1000 / 25);
     }
 }
