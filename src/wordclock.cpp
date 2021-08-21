@@ -163,6 +163,8 @@ void setup() {
 void loop() {
     btn.tick();
 
+#ifndef DEMO_MODE
+
     if (adjusting) {
         clear();
         if ((millis() >> 9) & 1) {
@@ -180,4 +182,31 @@ void loop() {
         }
         delay(1000 / 25);
     }
+
+#else
+
+    static int hour = 14;
+    static int minute = 15;
+    static int second = 0;
+
+    if (++second >= 60) {
+        second = 0;
+        if (++minute >= 60) {
+            minute = 0;
+            if (++hour >= 24) {
+                hour = 0;
+            }
+        }
+    }
+
+    pix_t img[8];
+    clear(img);
+    compose_time(hour, minute, img);
+    if (!bmp_equal(img, screen)) {
+        Serial.println(F("Updating display..."));
+        transition(img);
+    }
+    delay(1000 / 100);
+
+#endif
 }
