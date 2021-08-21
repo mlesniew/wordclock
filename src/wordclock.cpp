@@ -95,6 +95,8 @@ void setup() {
     lc.shutdown(0, false);
     lc.setIntensity(0, 15);
     lc.clearDisplay(0);
+    clear();
+    blit();
 
     // setup rtc
     rtc.Begin();
@@ -115,6 +117,11 @@ void setup() {
     const auto now = rtc.GetDateTime();
 
     adjusting = now.Year() < 2020;
+    if (!adjusting) {
+        for (int y = 0; y < 8; ++y)
+            screen[y] = 0xff;
+        blit();
+    }
 
     Serial.print(F("RTC time: "));
     print(now);
@@ -136,6 +143,8 @@ void setup() {
         });
 
     btn.attachLongPressStart([] {
+        for (int y = 0; y < 8; ++y)
+            screen[y] = 0xff;
         if (adjusting) {
             rtc.SetDateTime(RtcDateTime(2020, 1, 1, hour, minute, 0));
             adjusting = false;
@@ -145,6 +154,7 @@ void setup() {
             minute = (now.Minute() / 15 * 15);
             adjusting = true;
         }
+        blit();
     });
 
     Serial.println(F("Setup complete"));
