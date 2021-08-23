@@ -1,15 +1,6 @@
 #!/usr/bin/python3
 
-MATRIX = '''
-    HALFZERO
-    YQUARTER
-    PASTODOT
-    SIXTWONE
-    THREETEN
-    FIVEIGHT
-    TWELFOUR
-    SEVENINE
-'''.strip()
+MATRIX = open("matrix.txt", "r", encoding="utf-8").read().strip()
 
 WORDS = [
     'zero',
