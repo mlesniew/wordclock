@@ -4,3 +4,6 @@
 [submodule "lib/Rtc"]
 	path = lib/Rtc
 	url = https://github.com/Makuna/Rtc.git
+[submodule "lib/LedControl"]
+	path = lib/LedControl
+	url = https://github.com/wayoda/LedControl.git
