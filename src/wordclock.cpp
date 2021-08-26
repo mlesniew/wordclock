@@ -172,8 +172,6 @@ void setup() {
 void loop() {
     btn.tick();
 
-#ifndef DEMO_MODE
-
     if (adjusting) {
         clear();
         if ((millis() >> 9) & 1) {
@@ -183,28 +181,24 @@ void loop() {
     } else {
         pix_t img[8];
         clear(img);
+
+#ifndef DEMO_MODE
         const auto now = rtc.GetDateTime();
-        compose_time(now.Hour(), now.Minute(), img);
+        hour = now.Hour();
+        minute = now.Minute();
+#else
+        minute += 1;
+        hour += (minute / 60);
+        minute %= 60;
+        hour %= 12;
+#endif
+
+        compose_time(hour, minute, img);
         if (!bmp_equal(img, screen)) {
             Serial.println(F("Updating display..."));
             transition(img);
         }
-        delay(1000 / 25);
-    }
 
-#else
-    minute += 1;
-    hour += (minute / 60);
-    minute %= 60;
-    hour %= 12;
-
-    pix_t img[8];
-    clear(img);
-    compose_time(hour, minute, img);
-    if (!bmp_equal(img, screen)) {
-        Serial.println(F("Updating display..."));
-        transition(img);
+        delay(200);
     }
-    delay(500);
-#endif
 }
