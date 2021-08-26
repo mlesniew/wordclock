@@ -8,6 +8,15 @@
 #include "matrix.h"
 #include "transition.h"
 
+// Allow displaying "HALF TO X" (besides "HALF PAST X")
+//
+// If ALLOW_HALF_TO is defined:
+//   * "HALF PAST X" is displayed between x:24 and x:29
+//   * "HALF TO X" is displayed from x:30 to x:37.
+// If ALLOW_HALF_TO is not defined:
+//   * "HALF PAST X" is displayed between x:24 and x:37
+#define ALLOW_HALF_TO
+
 LedControl lc(2, 4, 3, 1);  /* DIN, CLK, LOAD, Matrix count */
 ThreeWire tw(5, 6, 7);      /* IO, SCLK, CE */
 RtcDS1302<ThreeWire> rtc(tw);
@@ -19,7 +28,11 @@ bool adjusting = false;
 void compose_time(char h, char m, pix_t * buf = screen) {
     const pix_t * pasto = nullptr;
 
+#ifdef ALLOW_HALF_TO
     if (m < 30)
+#else
+    if (m < 38)
+#endif
     {
         // count up from the past hour
         pasto = BMP_PAST;
