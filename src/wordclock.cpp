@@ -91,6 +91,15 @@ void print(const RtcDateTime& dt) {
 }
 
 void setup() {
+    // enable display
+    lc.shutdown(0, false);
+    lc.setIntensity(0, 15);
+
+    // after reset the display is all lit up, force it to be like that always
+    for (int y = 0; y < 8; ++y)
+        screen[y] = 0xff;
+    blit();
+
     Serial.begin(9600);
 
     Serial.print(F("\n\n"
@@ -103,13 +112,6 @@ void setup() {
        "8888P   Y8888 Y88..88P 888    Y88b 888 Y88b.    888 Y88..88P Y88b.    888 '88b\n"
        "888P     Y888  'Y88P'  888     'Y88888  'Y8888P 888  'Y88P'   'Y8888P 888  888\n"
        "\nBuilt on " __DATE__ " at " __TIME__ ".\n\n"));
-
-    // enable display
-    lc.shutdown(0, false);
-    lc.setIntensity(0, 15);
-    lc.clearDisplay(0);
-    clear();
-    blit();
 
     // setup rtc
     rtc.Begin();
@@ -130,11 +132,6 @@ void setup() {
     const auto now = rtc.GetDateTime();
 
     adjusting = now.Year() < 2020;
-    if (!adjusting) {
-        for (int y = 0; y < 8; ++y)
-            screen[y] = 0xff;
-        blit();
-    }
 
     Serial.print(F("RTC time: "));
     print(now);
@@ -162,7 +159,12 @@ void setup() {
         blit();
     });
 
-    Serial.println(F("Setup complete"));
+    Serial.println(F("Setup complete."));
+
+    // before entering the loop, wait 3 seconds to allow display inspection
+    delay(3000);
+
+    Serial.println(F("Entering loop..."));
 }
 
 
