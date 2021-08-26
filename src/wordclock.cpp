@@ -80,7 +80,7 @@ void print(const RtcDateTime& dt) {
 void setup() {
     Serial.begin(9600);
 
-    printf("\n\n"
+    Serial.print(F("\n\n"
        "888       888                      888          888                   888\n"
        "888   o   888                      888          888                   888\n"
        "888  d8b  888                      888          888                   888\n"
@@ -89,7 +89,7 @@ void setup() {
        "88888P Y88888 888  888 888    888  888 888      888 888  888 888      888888K\n"
        "8888P   Y8888 Y88..88P 888    Y88b 888 Y88b.    888 Y88..88P Y88b.    888 '88b\n"
        "888P     Y888  'Y88P'  888     'Y88888  'Y8888P 888  'Y88P'   'Y8888P 888  888\n"
-       "\nBuilt on " __DATE__ " at " __TIME__ ".\n\n");
+       "\nBuilt on " __DATE__ " at " __TIME__ ".\n\n"));
 
     // enable display
     lc.shutdown(0, false);
