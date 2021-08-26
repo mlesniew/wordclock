@@ -152,8 +152,6 @@ void setup() {
         });
 
     btn.attachLongPressStart([] {
-        for (int y = 0; y < 8; ++y)
-            screen[y] = 0xff;
         if (adjusting) {
             rtc.SetDateTime(RtcDateTime(2020, 1, 1, hour, minute, 0));
             adjusting = false;
@@ -167,12 +165,13 @@ void setup() {
     Serial.println(F("Setup complete"));
 }
 
+
 void loop() {
     btn.tick();
 
     if (adjusting) {
         clear();
-        if ((millis() >> 9) & 1) {
+        if ((millis() >> 8) & 1) {
             compose_time(hour, minute);
         }
         blit();
