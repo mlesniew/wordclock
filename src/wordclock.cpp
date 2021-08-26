@@ -158,9 +158,7 @@ void setup() {
             rtc.SetDateTime(RtcDateTime(2020, 1, 1, hour, minute, 0));
             adjusting = false;
         } else {
-            const auto now = rtc.GetDateTime();
-            hour = now.Hour();
-            minute = (now.Minute() / 15 * 15);
+            minute = (minute / 15 * 15);
             adjusting = true;
         }
         blit();
